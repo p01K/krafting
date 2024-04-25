@@ -9,7 +9,11 @@ sealed interface Expr {
 
     data class Grouping(val expr: Expr) : Expr
 
-    data class Literal(val o: Object) : Expr
+    data class Literal(val o: LoxValue) : Expr
+
+    data class Variable(val token: Token): Expr
 
     data class Unary(val token: Token, val right: Expr) : Expr
+
+    data object Nop: Expr
 }

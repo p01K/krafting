@@ -13,16 +13,23 @@ package com.krafting.lox
 class ExprParser(private val tokens: List<Token>) {
     private var current = 0
 
+    fun parse(): Expr = expression()
+
+    fun expression(): Expr = equality()
+
     private fun primary(): Expr {
         return when {
-            match(TokenType.FALSE) -> Expr.Literal(false as Object)
-            match(TokenType.TRUE) -> Expr.Literal(true as Object)
-            match(TokenType.NIL) -> Expr.Literal(Null() as Object)
-            match(TokenType.NUMBER, TokenType.STRING) -> Expr.Literal(previous().literal!!)
+            match(TokenType.FALSE) -> Expr.Literal(LoxValue.Bool(false))
+            match(TokenType.TRUE) -> Expr.Literal(LoxValue.Bool(true))
+            match(TokenType.NIL) -> Expr.Literal(LoxValue.Null)
+            match(TokenType.NUMBER, TokenType.STRING) -> Expr.Literal(previous().literal)
             match(TokenType.LEFT_PAREN) -> {
                 val expr: Expr = expression()
                 consume(TokenType.RIGHT_PAREN, "expected right paren")
                 return Expr.Grouping(expr)
+            }
+            match(TokenType.IDENTIFIER) -> {
+                return Expr.Variable(previous())
             }
             else -> throw IllegalStateException(".....")
         }
@@ -30,7 +37,7 @@ class ExprParser(private val tokens: List<Token>) {
 
     private fun term(): Expr {
         var expr: Expr = factor()
-        while(match(TokenType.STAR, TokenType.SLASH)){
+        while(match(TokenType.MINUS, TokenType.PLUS)){
             val token: Token = previous()
             val right: Expr = factor()
             expr = Expr.Binary(expr, token, right)
@@ -57,8 +64,6 @@ class ExprParser(private val tokens: List<Token>) {
         return primary()
     }
 
-    private fun expression(): Expr = equality()
-
     private fun comparison(): Expr {
         var expr: Expr = term()
         while(match(TokenType.GREATER, TokenType.GREATER_EQUAL, TokenType.LESS, TokenType.LESS_EQUAL)){
@@ -79,14 +84,14 @@ class ExprParser(private val tokens: List<Token>) {
         return expr
     }
 
-    private fun consume(t: TokenType, msg: String){
+    fun consume(t: TokenType, msg: String){
         if(!checkType(t)){
             throw ParserError(msg)
         }
         advance()
     }
 
-    private fun match(vararg types: TokenType): Boolean {
+    fun match(vararg types: TokenType): Boolean {
         for(t in types){
             if(checkType(t)){
                 advance()
@@ -102,17 +107,13 @@ class ExprParser(private val tokens: List<Token>) {
         }
     }
 
-    private fun checkType(types: Array<TokenType>): Boolean {
-        return types.any{ checkType(it) }
-    }
-
     private fun checkType(type: TokenType): Boolean {
         return if(isAtEnd()) false else peek().tokenType == type
     }
 
-    private fun isAtEnd(): Boolean = peek().tokenType == TokenType.EOF
+    fun isAtEnd(): Boolean = peek().tokenType == TokenType.EOF
 
-    private fun peek(): Token = tokens[current-1]
+    fun peek(): Token = tokens[current]
 
-    private fun previous(): Token = tokens[current]
+    private fun previous(): Token = tokens[current-1]
 }

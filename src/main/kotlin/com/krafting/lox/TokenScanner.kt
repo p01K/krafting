@@ -1,6 +1,6 @@
 package com.krafting.lox
 
-class TokenScanner(val source: String) {
+class TokenScanner(private val source: String) {
     private var start = 0
     private var currentIdx = 0
     private var line = 1
@@ -8,13 +8,15 @@ class TokenScanner(val source: String) {
 
     fun parseTokens(): List<Token> {
         while (!hasEnded()){
+            start=currentIdx
             scanToken()
         }
+        tokens.add(Token.eof(line))
         return tokens.toList()
     }
 
-    fun scanToken(){
-        val currChar: Char = advance()
+    private fun scanToken(){
+        val currChar: Char = advanceAndFetch()
         when(currChar){
             '(' -> addToken(TokenType.LEFT_PAREN)
             ')' -> addToken(TokenType.RIGHT_PAREN)
@@ -44,28 +46,28 @@ class TokenScanner(val source: String) {
         }
     }
 
-    fun handleIdentifier(){
+    private fun handleIdentifier(){
         advanceWhile { it.isLetterOrDigit() || it=='_'}
         val type = KeywordsMap.find(currentString()) ?: TokenType.IDENTIFIER
         addToken(type)
     }
 
-    fun addNumber() {
+    private fun addNumber() {
         advanceWhile { it.isDigit() }
-        if(currentChar()=='.' && nextChar()?.isDigit() == true){
+        if(!hasEnded() && currentChar()=='.' && nextChar()?.isDigit() == true){
             advance()
             advanceWhile { it.isDigit() }
         }
-        addToken(TokenType.NUMBER, currentString().toDouble() as Object)
+        addToken(TokenType.NUMBER, LoxValue.Num(currentString().toDouble()))
     }
 
     private fun advanceWhile(pred: (Char) -> Boolean){
-        while(pred.invoke(currentChar())){
+        while(!hasEnded() && pred.invoke(currentChar())){
             advance()
         }
     }
 
-    fun addString() {
+    private fun addString() {
         while(currentChar()!='"' && !hasEnded()){
             if(currentChar()=='\n'){
                 advanceLine()
@@ -79,7 +81,7 @@ class TokenScanner(val source: String) {
         addToken(TokenType.STRING, source.substring(start+1 until currentIdx-1))
     }
 
-    fun addIfMatchesOrElse(c: Char, tokenType1: TokenType, tokenType2: TokenType){
+    private fun addIfMatchesOrElse(c: Char, tokenType1: TokenType, tokenType2: TokenType){
         if(matches(c)){
             addToken(tokenType1)
             advance()
@@ -88,20 +90,20 @@ class TokenScanner(val source: String) {
         }
     }
 
-    fun addToken(type: TokenType){
+    private fun addToken(type: TokenType){
         addToken(type, currentString())
     }
 
-    fun addToken(type: TokenType, o: Object){
+    private fun addToken(type: TokenType, o: LoxValue){
         addToken(type, currentString(), o)
     }
 
-    fun addToken(type: TokenType, value: String){
+    private fun addToken(type: TokenType, value: String){
         addToken(type, value, null)
     }
 
-    fun addToken(type: TokenType, value: String, o: Object?){
-        tokens.add(Token(type, value, o, line))
+    private fun addToken(type: TokenType, value: String, o: LoxValue?){
+        tokens.add(Token(type, value, o ?: LoxValue.Null, line))
     }
 
     private fun matches(c: Char): Boolean = !hasEnded() && currentChar()==c
@@ -110,7 +112,11 @@ class TokenScanner(val source: String) {
 
     private fun nextChar(): Char? = if(currentIdx<source.length) { source[currentIdx+1] } else null
 
-    private fun advance(): Char = source[currentIdx++]
+    private fun advanceAndFetch(): Char = source[currentIdx++]
+
+    private fun advance() {
+        currentIdx++
+    }
 
     private fun advanceLine() {
         line++
