@@ -36,11 +36,18 @@ class TokenScannerTest {
         val scanner = TokenScanner(source)
         val tokens = scanner.parseTokens()
         println(tokens)
-//        assert(tokens.size == 6)
-//        assertEquals(tokens[0], Token.firstLineNumber(1))
-//        assertEquals(tokens[1], Token.firstLinePlusOperator())
-//        assertEquals(tokens[2], Token.firstLineNumber(2))
-//        assertEquals(tokens[3], Token.firstLinePlusOperator())
-//        assertEquals(tokens[4], Token.firstLineNumber(3))
+
+    }
+
+    @Test
+    fun multilineParseTest(){
+        val source = """
+            |var a = 1 + 2 + 3;
+            |var b = a + 2;
+        """.trimMargin().trim()
+//        val source = "var a = 1 + 2 + 3;"
+        val scanner = TokenScanner(source)
+        val tokens = scanner.parseTokens()
+        println(tokens)
     }
 }

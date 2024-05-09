@@ -1,21 +1,40 @@
 package com.krafting.lox
 
+import kotlin.collections.mutableListOf
+
 /**
  * Grammar Definition
- * expression -> equality ;
+ * expression -> assignment;
+ * assignment -> IDENTIFIER = assignment | logic_or
+ * logic_or -> logic_and (or logic_and)*
+ * logic_and -> equality ( and equality ) *
  * equality -> comparison ( ("!=" | "==") comparison ) *
  * comparison -> term ( (">" | ">=" | "<" | "<=") term ) *
  * term -> factor ( ("-" | "+") factor ) *
  * factor -> unary ( ("*" | "/") unary ) *
- * unary -> ("!" | "-") unary | primary ;
+ * unary -> ("!" | "-") unary | call ;
+ * call -> primary ( ( arguments? ) )*
  * primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")"
+ * arguments -> expression ( , expression )*;
  */
 class ExprParser(private val tokens: List<Token>) {
     private var current = 0
 
     fun parse(): Expr = expression()
 
-    fun expression(): Expr = equality()
+    fun expression(): Expr = assignment()
+
+    fun assignment(): Expr {
+        val expr = or()
+        if(match(TokenType.EQUAL)){
+            val value: Expr = assignment()
+            if (expr is Expr.Variable){
+                return Expr.Assignment(expr.token, value)
+            }
+            throw IllegalStateException("...")
+        }
+        return expr
+    }
 
     private fun primary(): Expr {
         return when {
@@ -31,7 +50,7 @@ class ExprParser(private val tokens: List<Token>) {
             match(TokenType.IDENTIFIER) -> {
                 return Expr.Variable(previous())
             }
-            else -> throw IllegalStateException(".....")
+            else -> throw IllegalStateException("Illegal token "+peek())
         }
     }
 
@@ -61,7 +80,31 @@ class ExprParser(private val tokens: List<Token>) {
             val right: Expr = unary()
             return Expr.Unary(token, right)
         }
-        return primary()
+        return call()
+    }
+
+    private fun call(): Expr {
+        var expr = primary()
+
+        while (match(TokenType.LEFT_PAREN)){
+            expr = finishCall(expr)
+        }
+
+        return expr
+    }
+
+    private fun finishCall(callee: Expr): Expr {
+        val arguments = mutableListOf<Expr>()
+        if(!checkType(TokenType.RIGHT_PAREN)){
+            do {
+                if(arguments.size>=255){
+                    throw IllegalArgumentException("Can't have more than 255 arguments")
+                }
+                arguments += expression()
+            } while (match(TokenType.COMMA))
+        }
+        consume(TokenType.RIGHT_PAREN, "expected ) after arguments")
+        return Expr.Call(callee, peek(), arguments)
     }
 
     private fun comparison(): Expr {
@@ -80,6 +123,24 @@ class ExprParser(private val tokens: List<Token>) {
             val token: Token = previous()
             val right: Expr = comparison()
             expr = Expr.Binary(expr, token, right)
+        }
+        return expr
+    }
+
+    private fun or(): Expr {
+        var expr: Expr = and()
+        while(match(TokenType.OR)){
+            val right: Expr = and()
+            expr = Expr.Logical(expr, TokenType.OR, right)
+        }
+        return expr
+    }
+
+    private fun and(): Expr {
+        var expr: Expr = equality()
+        while(match(TokenType.AND)){
+            val right: Expr = equality()
+            expr = Expr.Logical(expr, TokenType.AND, right)
         }
         return expr
     }
@@ -107,7 +168,7 @@ class ExprParser(private val tokens: List<Token>) {
         }
     }
 
-    private fun checkType(type: TokenType): Boolean {
+    fun checkType(type: TokenType): Boolean {
         return if(isAtEnd()) false else peek().tokenType == type
     }
 

@@ -13,7 +13,13 @@ sealed interface Expr {
 
     data class Variable(val token: Token): Expr
 
+    data class Assignment(val token: Token, val value: Expr): Expr
+
     data class Unary(val token: Token, val right: Expr) : Expr
+
+    data class Logical(val left: Expr, val op: TokenType, val right: Expr): Expr
+
+    data class Call(val callee: Expr, val paren: Token, val arguments: List<Expr>): Expr
 
     data object Nop: Expr
 }
