@@ -7,7 +7,7 @@ sealed interface Stmt {
 
     data class Return(val e: Expr?): Stmt
 
-    data class Variable(val name: String, val init: Expr) : Stmt
+    data class Variable(val name: String, val init: Expr?) : Stmt
 
     data class Block(val statements: List<Stmt>) : Stmt
 

@@ -9,6 +9,9 @@ class ReturnValue(val value: LoxValue?): RuntimeException()
 
 class Interpreter {
     private var environment: Environment = Environment()
+    //Expression to scope depth where the variable was defined
+    private val locals: MutableMap<Expr, Int> = mutableMapOf()
+    private val globals: Environment = Environment()
 
     companion object {
         val NUM_OPERATOR_MAP: Map<TokenType, (Double,Double) -> Double > = mapOf(
@@ -31,18 +34,26 @@ class Interpreter {
         }
     }
 
+    fun resolve(e: Expr, depth: Int){
+        locals[e] = depth
+    }
+
     fun evaluateExpression(e: Expr): LoxValue {
         return when(e){
             is Expr.Literal -> e.o
             is Expr.Binary -> evaluate(e)
             is Expr.Grouping -> evaluateExpression(e.expr)
             is Expr.Unary -> evaluate(e)
-            is Expr.Variable -> environment.get(e.token.lexeme) ?: LoxValue.Null
+            is Expr.Variable -> evaluateVariableExpr(e)
             is Expr.Assignment -> evaluateAssignment(e)
             is Expr.Logical -> evaluate(e)
             is Expr.Call -> evaluateCall(e)
             is Expr.Nop -> LoxValue.Null
         }
+    }
+
+    fun evaluateVariableExpr(e: Expr.Variable): LoxValue {
+        return locals[e]?.let { environment.getAtDepth(it, e.token.lexeme) } ?: globals.get(e.token.lexeme) ?: LoxValue.Null
     }
 
     fun evaluateCall(e: Expr.Call): LoxValue {
@@ -70,7 +81,7 @@ class Interpreter {
                 evaluateExpression(e.e)
             }
             is Stmt.Variable -> {
-                val value = evaluateExpression(e.init)
+                val value = e.init?.let{ evaluateExpression(it) } ?: LoxValue.Null
                 environment.define(e.name, value)
                 LoxValue.Null
             }
@@ -159,8 +170,11 @@ class Interpreter {
 
     private fun evaluateAssignment(expr: Expr.Assignment): LoxValue {
         val v: LoxValue = evaluateExpression(expr.value)
-        println("Token ${expr.token}")
-        environment.assign(expr.token.lexeme, v)
+        if(locals[expr] !=null){
+            environment.assignAtDepth(locals[expr]!!, expr.token.lexeme, v)
+        } else {
+            globals.assign(expr.token.lexeme, v)
+        }
         return v
     }
 
